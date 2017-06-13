@@ -130,7 +130,7 @@ function receivedMessage(event)  {
   } else if (messageAttachments) {
     sendTextMessage(senderID, "Message with attachment received");
   }
-  } else if (event.postback) {
+  else if (event.postback) {
   	receivedPostback(event); 
   }
 }
