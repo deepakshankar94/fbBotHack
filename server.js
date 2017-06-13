@@ -9,7 +9,7 @@ app.post('/', function (req, res) {
 
 app.get('/', function (req, res) {
   
-  res.send("get");
+  res.send(req.query);
 })
 app.listen(process.env.PORT || 3000, function () {
   console.log('Example app listening on port ' +process.env.PORT || 3000 )
