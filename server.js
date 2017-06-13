@@ -8,7 +8,7 @@ app.post('/', function (req, res) {
 
 
 app.get('/', function (req, res) {
-  
+  console.log(req.query);
   res.send(req.query);
 })
 app.listen(process.env.PORT || 3000, function () {
