@@ -11,5 +11,11 @@
     "url": "https://roshnatest@testbothack1994.scm.azurewebsites.net:443/testBotHack1994.git"
   },
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.17.2",
+    "crypto": "0.0.3",
+    "https": "^1.0.0",
+    "request": "^2.81.0"
+  }
 }

@@ -1,9 +1,25 @@
 const express = require('express')
+bodyParser = require('body-parser')
+  https = require('https'),  
+  request = require('request');
+
 const app = express()
 
-app.post('/webhook', function (req, res) {
+
+var registering = 0;
+var findDonor = 0,
+resisteringStep = 0,
+findDonorStep = 0;
+var userData = {};
+var accessToken = "EAACvBDMN9tgBAN3N6J2YMtSZCZClFNyeX9jGCLu7LSDPUDBYKzxB5Bd8KtGj3WX31ZCMpHy1aVuFZAwkJTFgARtNf7hHOE5IwXn2BBv8fUKm1nXVvZBHCtvtInM4sQWuBzWG5q8fp1Y2TrrJ5tusX19z3dJ1BwwZCQwzSbgmBRowZDZD";
+
+
+//app.use(bodyParser.json({ verify: verifyRequestSignature }));
+app.use(bodyParser.json());
+
+app.post('/', function (req, res) {
   var data = req.body;
-  console.log("received text")
+  console.log(data);
   // Make sure this is a page subscription
   if (data.object === 'page') {
 
@@ -16,7 +32,10 @@ app.post('/webhook', function (req, res) {
       entry.messaging.forEach(function(event) {
         if (event.message) {
           receivedMessage(event);
-        } else {
+        } else if(event.postback){
+          receivedPostback(event);
+        }
+        else{
           console.log("Webhook received unknown event: ", event);
         }
       });
@@ -52,6 +71,38 @@ function callSendAPI(messageData) {
     }
   });  
 }
+
+
+function callUserDataAPI(senderId) {
+  request('https://graph.facebook.com/v2.6/'+senderId+'?fields=first_name,last_name,profile_pic,locale,timezone,gender&access_token='+accessToken, 
+    function(response,error,body) {
+    //console.log(response.statusCode) // 200 
+    //console.log(response) // 'image/png'
+     body = JSON.parse(body);
+    console.log(body.first_name);
+  })
+
+}
+
+
+function getLocation(recipientId) {
+  var messageData = {
+    recipient: {
+      id: recipientId
+    },
+      message: {
+        "text":"Please share your location where you can donate blood around:",
+        "quick_replies":[
+          {
+            "content_type":"location",
+          }
+        ]
+      }
+  };
+
+  callSendAPI(messageData);
+}
+
 
 function sendGenericMessage(recipientId) {
   var messageData = {
@@ -94,7 +145,8 @@ function sendGenericMessage(recipientId) {
           }]
         }
       }
-    }
+    },
+  
   };  
 
   callSendAPI(messageData);
@@ -115,24 +167,117 @@ function receivedMessage(event)  {
   var messageText = message.text;
   var messageAttachments = message.attachments;
 
+  if(registering){
+    switch(resisteringStep){
+      case 1:
+        saveName(senderId,messageText);
+        break;
+      case 2:
+        saveBloodGroup(senderId,messageText);
+        break;
+      case 3:
+        getLocation(senderID);
+    }
+  }
+
   if (messageText) {
 
     // If we receive a text message, check to see if it matches a keyword
     // and send back the example. Otherwise, just echo the text we received.
     switch (messageText) {
+      case 'hi':
+      case 'hello':
+      case 'Hi':
+      case 'Hello':
+        sendGreetingMessage(senderID);
+        break;
       case 'generic':
         sendGenericMessage(senderID);
+        break;
+      case 'getData':
+        callUserDataAPI(senderID);
+        break;
+      case 'loc':
+        getLocation(senderID);
         break;
 
       default:
         sendTextMessage(senderID, messageText);
     }
   } else if (messageAttachments) {
+    console.log(messageAttachments);
+    switch(messageAttachments[0].type){
+      case 'location':
+        setLocation(senderID,messageAttachments[0].payload);
+        break;
+    }
     sendTextMessage(senderID, "Message with attachment received");
   }
   else if (event.postback) {
   	receivedPostback(event); 
   }
+}
+
+function setLocation(senderId,location) {
+  sendTextMessage(senderId,"Your Location has been saved!");
+  console.log(location);
+  userData.loc = location.coordinates;
+
+}
+
+function saveName(senderId,Name) {
+    sendTextMessage(senderId,"Hi "+Name);
+    userData.Name = Name;
+    sendTextMessage(senderId,"Please tell your Blood group.");
+    resisteringStep++;
+}
+
+function saveName(senderId,Bloodgroup) {
+    //sendTextMessage(senderID,"Your "+Name);
+    //userData.Name = Name;
+    sendTextMessage(senderID,"Please tell your Blood group.");
+    resisteringStep++;
+}
+
+function sendGreetingMessage(recipientId) {
+  var messageData = {
+    recipient: {
+      id: recipientId
+    },
+    message: {
+      text: "Hi! I am Blood Donation bot. :D "
+    }
+  };
+
+  callSendAPI(messageData);
+  var messageData = {
+    recipient: {
+      id: recipientId
+    },
+      message: {
+      "attachment":{
+        "type":"template",
+        "payload":{
+          "template_type":"button",
+          "text":"What do you want me to help you with today?",
+          "buttons":[
+            {
+              "type":"web_url",
+              "url":"https://petersapparel.parseapp.com",
+              "title":"Show Website"
+            },
+            {
+              "type":"postback",
+              "title":"Start Chatting",
+              "payload":"USER_DEFINED_PAYLOAD"
+            }
+          ]
+        }
+      }
+    }
+  };
+
+  callSendAPI(messageData);
 }
 
 function sendTextMessage(recipientId, messageText) {
@@ -159,16 +304,33 @@ function receivedPostback(event) {
 
   console.log("Received postback for user %d and page %d with payload '%s' " + 
     "at %d", senderID, recipientID, payload, timeOfPostback);
+  switch(payload){
+    case 'GET_STARTED_PAYLOAD':
+      sendGreetingMessage(senderID);
+      break;
+    case 'register':
+      registerUser(senderID);
+      break;
+
+    case 'find_donor':
+  }
 
   // When a postback is called, we'll send a message back to the sender to 
   // let them know it was successful
   sendTextMessage(senderID, "Postback called");
 }
 
+function registerUser(senderID) {
+    sendTextMessage(senderID, "The setup proces is really simple and fast!! :O");
+    sendTextMessage(senderID, "Please tell me your name");
+    registering = 1;
+    resisteringStep = 1;
+}
+
 app.get('/', function (req, res) {
   console.log(req.query);	
   res.send(req.query["hub.challenge"]);
 })
-app.listen(process.env.PORT || 3000, function () {
-  console.log('Example app listening on port ' +process.env.PORT || 3000 )
+app.listen((process.env.PORT || 3000), function () {
+  console.log('Example app listening on port ' +(process.env.PORT || 3000) )
 })
