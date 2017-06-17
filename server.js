@@ -240,7 +240,7 @@ function saveName(senderId,Bloodgroup) {
 }
 
 function sendGreetingMessage(recipientId) {
-	return;
+	
   var messageData = {
     recipient: {
       id: recipientId
